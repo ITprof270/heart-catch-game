@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Ein Spiel für Dich</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #1a1a2e;
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            text-align: center;
+        }
+
+        #gameCanvas {
+            display: block;
+            background-color: #1a1a2e;
+            touch-action: none; /* Wichtig für mobile Geräte */
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
+            transition: opacity 0.5s ease;
+        }
+
+        .hidden {
+            display: none;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            color: #ff6b81;
+            margin-bottom: 10px;
+        }
+
+        p {
+            font-size: 1.2em;
+            margin-bottom: 30px;
+            line-height: 1.5;
+        }
+
+        button {
+            padding: 15px 30px;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            background: #ff6b81;
+            color: #fff;
+            font-weight: bold;
+            transition: background 0.3s ease, transform 0.1s ease;
+            box-shadow: 0 4px 15px rgba(255, 107, 129, 0.4);
+        }
+
+        button:hover {
+            background: #ff4757;
+            transform: scale(1.05);
+        }
+
+        #score {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 1.5em;
+            color: #ff6b81;
+            font-weight: bold;
+            z-index: 10;
+        }
+
+        #final-message h1 {
+            font-size: 3em;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="score">Herzen: 0 / 10</div>
+    <canvas id="gameCanvas"></canvas>
+
+    <div class="overlay" id="start-screen">
+        <h1>Ein kleines Spiel für Dich</h1>
+        <p>
+            Bevor wir zum wichtigsten Teil kommen, musst du mir helfen,
+            ein paar Herzen zu fangen. Tippe einfach auf die Herzen,
+            sobald sie erscheinen!
+        </p>
+        <button onclick="startGame()">Starten</button>
+    </div>
+
+    <div class="overlay hidden" id="final-message">
+        <h1>Level 100 erreicht!</h1>
+        <p>
+            Du hast es geschafft! Deine Belohnung ist freigeschaltet:<br>
+            Ein **Kaffee-Date** mit mir.
+        </p>
+        <p>
+            Wann hast du Zeit? Ich freue mich darauf, dich zu sehen.
+        </p>
+        <button onclick="window.location.href='mailto:?subject=Kaffee-Date%20Einladung&body=Hallo%2C%20ich%20habe%20dein%20Spiel%20gespielt%20und%20nehme%20die%20Einladung%20zum%20Kaffee%20gerne%20an!%20Wie%20w%C3%A4re%20es%20am...'">
+            ☕ Antwort senden
+        </button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('score');
+        const finalMessage = document.getElementById('final-message');
+        const startScreen = document.getElementById('start-screen');
+
+        let hearts = [];
+        let score = 0;
+        let gameRunning = false;
+        const TARGET_SCORE = 10;
+
+        // Set canvas size to fill the screen
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        class Heart {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.size = 30;
+                this.color = '#ff6b81';
+                this.isCaught = false;
+                this.lifetime = 120; // Frames
+                this.opacity = 1;
+            }
+
+            draw() {
+                if (this.isCaught) return;
+
+                ctx.save();
+                ctx.globalAlpha = this.opacity;
+                ctx.fillStyle = this.color;
+                ctx.shadowColor = this.color;
+                ctx.shadowBlur = 10;
+
+                // Simple heart shape drawing
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y + this.size / 4);
+                ctx.bezierCurveTo(
+                    this.x + this.size / 2, this.y - this.size / 2,
+                    this.x + this.size, this.y,
+                    this.x, this.y + this.size
+                );
+                ctx.bezierCurveTo(
+                    this.x - this.size, this.y,
+                    this.x - this.size / 2, this.y - this.size / 2,
+                    this.x, this.y + this.size / 4
+                );
+                ctx.fill();
+                ctx.restore();
+            }
+
+            update() {
+                this.lifetime--;
+                this.opacity = this.lifetime / 120;
+            }
+
+            isClicked(clickX, clickY) {
+                // Simple circular hit detection for the heart's center
+                const distance = Math.sqrt(
+                    (clickX - this.x) ** 2 + (clickY - (this.y + this.size / 2)) ** 2
+                );
+                return distance < this.size * 0.8;
+            }
+        }
+
+        function spawnHeart() {
+            if (!gameRunning) return;
+            const x = Math.random() * (canvas.width - 60) + 30;
+            const y = Math.random() * (canvas.height - 60) + 30;
+            hearts.push(new Heart(x, y));
+        }
+
+        function updateGame() {
+            if (!gameRunning) return;
+
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Update and draw hearts
+            hearts.forEach(heart => {
+                heart.update();
+                heart.draw();
+            });
+
+            // Remove old hearts
+            hearts = hearts.filter(heart => heart.lifetime > 0 && !heart.isCaught);
+
+            // Check for win condition
+            if (score >= TARGET_SCORE) {
+                endGame();
+                return;
+            }
+
+            requestAnimationFrame(updateGame);
+        }
+
+        function handleInteraction(event) {
+            if (!gameRunning) return;
+
+            let clickX, clickY;
+
+            if (event.touches) {
+                // Handle touch events (mobile)
+                clickX = event.touches[0].clientX;
+                clickY = event.touches[0].clientY;
+                event.preventDefault(); // Prevent scrolling/zooming
+            } else {
+                // Handle mouse events (desktop)
+                clickX = event.clientX;
+                clickY = event.clientY;
+            }
+
+            let caught = false;
+            for (let i = hearts.length - 1; i >= 0; i--) {
+                if (hearts[i].isClicked(clickX, clickY)) {
+                    hearts[i].isCaught = true;
+                    score++;
+                    scoreDisplay.textContent = `Herzen: ${score} / ${TARGET_SCORE}`;
+                    caught = true;
+                    break;
+                }
+            }
+        }
+
+        canvas.addEventListener('click', handleInteraction);
+        canvas.addEventListener('touchstart', handleInteraction);
+
+        let spawnInterval;
+
+        function startGame() {
+            startScreen.classList.add('hidden');
+            finalMessage.classList.add('hidden');
+            score = 0;
+            hearts = [];
+            scoreDisplay.textContent = `Herzen: ${score} / ${TARGET_SCORE}`;
+            gameRunning = true;
+            spawnInterval = setInterval(spawnHeart, 1000); // Spawn a heart every second
+            updateGame();
+        }
+
+        function endGame() {
+            gameRunning = false;
+            clearInterval(spawnInterval);
+            // Show final message
+            finalMessage.classList.remove('hidden');
+            finalMessage.style.opacity = 1;
+            // Clear canvas for final message visibility
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // Initial setup
+        scoreDisplay.textContent = `Herzen: 0 / ${TARGET_SCORE}`;
+    </script>
+
+</body>
+</html>

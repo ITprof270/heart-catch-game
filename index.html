@@ -2,13 +2,13 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>Ein Spiel für Dich</title>
+    <title>Nicolas's Coffee Quest</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body {
             margin: 0;
             overflow: hidden;
-            background-color: #1a1a2e;
+            background-color: #1a1a2e; /* Dunkler Hintergrund */
             color: #fff;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             display: flex;
@@ -21,7 +21,7 @@
         #gameCanvas {
             display: block;
             background-color: #1a1a2e;
-            touch-action: none; /* Wichtig für mobile Geräte */
+            touch-action: none;
         }
 
         .overlay {
@@ -48,7 +48,7 @@
 
         h1 {
             font-size: 2.5em;
-            color: #ff6b81;
+            color: #ffcc00; /* Gelb für Kaffee/Humor */
             margin-bottom: 10px;
         }
 
@@ -64,15 +64,15 @@
             border: none;
             border-radius: 30px;
             cursor: pointer;
-            background: #ff6b81;
-            color: #fff;
+            background: #ffcc00;
+            color: #1a1a2e;
             font-weight: bold;
             transition: background 0.3s ease, transform 0.1s ease;
-            box-shadow: 0 4px 15px rgba(255, 107, 129, 0.4);
+            box-shadow: 0 4px 15px rgba(255, 204, 0, 0.4);
         }
 
         button:hover {
-            background: #ff4757;
+            background: #ffb300;
             transform: scale(1.05);
         }
 
@@ -82,7 +82,7 @@
             left: 50%;
             transform: translateX(-50%);
             font-size: 1.5em;
-            color: #ff6b81;
+            color: #ffcc00;
             font-weight: bold;
             z-index: 10;
         }
@@ -90,35 +90,40 @@
         #final-message h1 {
             font-size: 3em;
             margin-bottom: 20px;
+            color: #ffcc00;
         }
     </style>
 </head>
 <body>
 
-    <div id="score">Herzen: 0 / 10 </div>
+    <div id="score">Kaffee-Level: 0 / 10</div>
     <canvas id="gameCanvas"></canvas>
 
     <div class="overlay" id="start-screen">
-        <h1>Ein kleines Spiel für Dich</h1>
+        <h1>Nicolas's Coffee Quest</h1>
         <p>
-            Bevor wir zum wichtigsten Teil kommen, musst du mir helfen,
-            ein paar Herzen zu fangen. Tippe einfach auf die Herzen,
-            sobald sie erscheinen!
+            Willkommen beim ultimativen Test! Ich habe meine Kaffeetassen
+            verloren. Fange 10 davon, um zu beweisen, dass du ein
+            **Nicolas-Experte** bist.
+        </p>
+        <p>
+            *Achtung: Die Tassen sind so unorganisiert wie ich.*
         </p>
         <button onclick="startGame()">Starten</button>
     </div>
 
     <div class="overlay hidden" id="final-message">
-        <h1>Level 100 erreicht!</h1>
+        <h1>Zertifiziert!</h1>
         <p>
-            Du hast es geschafft! Deine Belohnung ist freigeschaltet:<br>
-            Ein **Kaffee-Date** mit mir.
+            Du hast 10 Tassen gefangen und damit offiziell den Titel
+            **"Nicolas Käufer-Experte"** erhalten.
         </p>
         <p>
-            Wann hast du Zeit? Ich freue mich darauf, dich zu sehen.
+            Das bedeutet: Du bist jetzt qualifiziert, mich zu ertragen.
+            Glückwunsch! Schreib mir, wenn du deinen Preis abholen möchtest.
         </p>
-        <button onclick="window.location.href='mailto:?subject=Kaffee-Date%20Einladung&body=Hallo%2C%20ich%20habe%20dein%20Spiel%20gespielt%20und%20nehme%20die%20Einladung%20zum%20Kaffee%20gerne%20an!%20Wie%20w%C3%A4re%20es%20am...'">
-            ☕ Antwort senden
+        <button onclick="window.location.href='mailto:?subject=Nicolas%20Experte%20Zertifizierung&body=Ich%20habe%20das%20Spiel%20gewonnen!%20Wann%20kann%20ich%20meinen%20Preis%20abholen%3F%20(PS%3A%20Ich%20mag%20deinen%20Humor.)'">
+            🏆 Preis abholen
         </button>
     </div>
 
@@ -129,10 +134,12 @@
         const finalMessage = document.getElementById('final-message');
         const startScreen = document.getElementById('start-screen');
 
-        let hearts = [];
+        let items = [];
         let score = 0;
         let gameRunning = false;
         const TARGET_SCORE = 10;
+        const ITEM_EMOJI = '☕'; // Coffee Cup Emoji
+        const FONT_SIZE = 40;
 
         // Set canvas size to fill the screen
         function resizeCanvas() {
@@ -142,12 +149,11 @@
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
-        class Heart {
+        class Item {
             constructor(x, y) {
                 this.x = x;
                 this.y = y;
-                this.size = 30;
-                this.color = '#ff6b81';
+                this.size = FONT_SIZE;
                 this.isCaught = false;
                 this.lifetime = 120; // Frames
                 this.opacity = 1;
@@ -158,24 +164,10 @@
 
                 ctx.save();
                 ctx.globalAlpha = this.opacity;
-                ctx.fillStyle = this.color;
-                ctx.shadowColor = this.color;
-                ctx.shadowBlur = 10;
-
-                // Simple heart shape drawing
-                ctx.beginPath();
-                ctx.moveTo(this.x, this.y + this.size / 4);
-                ctx.bezierCurveTo(
-                    this.x + this.size / 2, this.y - this.size / 2,
-                    this.x + this.size, this.y,
-                    this.x, this.y + this.size
-                );
-                ctx.bezierCurveTo(
-                    this.x - this.size, this.y,
-                    this.x - this.size / 2, this.y - this.size / 2,
-                    this.x, this.y + this.size / 4
-                );
-                ctx.fill();
+                ctx.font = `${this.size}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(ITEM_EMOJI, this.x, this.y);
                 ctx.restore();
             }
 
@@ -185,19 +177,20 @@
             }
 
             isClicked(clickX, clickY) {
-                // Simple circular hit detection for the heart's center
-                const distance = Math.sqrt(
-                    (clickX - this.x) ** 2 + (clickY - (this.y + this.size / 2)) ** 2
-                );
-                return distance < this.size * 0.8;
+                // Hit detection based on emoji size
+                const halfSize = this.size / 2;
+                return clickX > this.x - halfSize &&
+                       clickX < this.x + halfSize &&
+                       clickY > this.y - halfSize &&
+                       clickY < this.y + halfSize;
             }
         }
 
-        function spawnHeart() {
+        function spawnItem() {
             if (!gameRunning) return;
-            const x = Math.random() * (canvas.width - 60) + 30;
-            const y = Math.random() * (canvas.height - 60) + 30;
-            hearts.push(new Heart(x, y));
+            const x = Math.random() * (canvas.width - FONT_SIZE) + FONT_SIZE / 2;
+            const y = Math.random() * (canvas.height - FONT_SIZE) + FONT_SIZE / 2;
+            items.push(new Item(x, y));
         }
 
         function updateGame() {
@@ -206,14 +199,14 @@
             // Clear canvas
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Update and draw hearts
-            hearts.forEach(heart => {
-                heart.update();
-                heart.draw();
+            // Update and draw items
+            items.forEach(item => {
+                item.update();
+                item.draw();
             });
 
-            // Remove old hearts
-            hearts = hearts.filter(heart => heart.lifetime > 0 && !heart.isCaught);
+            // Remove old items
+            items = items.filter(item => item.lifetime > 0 && !item.isCaught);
 
             // Check for win condition
             if (score >= TARGET_SCORE) {
@@ -241,11 +234,11 @@
             }
 
             let caught = false;
-            for (let i = hearts.length - 1; i >= 0; i--) {
-                if (hearts[i].isClicked(clickX, clickY)) {
-                    hearts[i].isCaught = true;
+            for (let i = items.length - 1; i >= 0; i--) {
+                if (items[i].isClicked(clickX, clickY)) {
+                    items[i].isCaught = true;
                     score++;
-                    scoreDisplay.textContent = `Herzen: ${score} / ${TARGET_SCORE}`;
+                    scoreDisplay.textContent = `Kaffee-Level: ${score} / ${TARGET_SCORE}`;
                     caught = true;
                     break;
                 }
@@ -261,10 +254,10 @@
             startScreen.classList.add('hidden');
             finalMessage.classList.add('hidden');
             score = 0;
-            hearts = [];
-            scoreDisplay.textContent = `Herzen: ${score} / ${TARGET_SCORE}`;
+            items = [];
+            scoreDisplay.textContent = `Kaffee-Level: ${score} / ${TARGET_SCORE}`;
             gameRunning = true;
-            spawnInterval = setInterval(spawnHeart, 1000); // Spawn a heart every second
+            spawnInterval = setInterval(spawnItem, 1000); // Spawn an item every second
             updateGame();
         }
 
@@ -279,7 +272,7 @@
         }
 
         // Initial setup
-        scoreDisplay.textContent = `Herzen: 0 / ${TARGET_SCORE}`;
+        scoreDisplay.textContent = `Kaffee-Level: 0 / ${TARGET_SCORE}`;
     </script>
 
 </body>
